@@ -8,12 +8,18 @@ import os
 history = defaultdict(list)
 
 async def generate_gpt_response(update, context):
+    if not update.message:
+        return
+
+    user_input = update.message.text
+    if not user_input:
+        return
+
     global history
     h = history[update.effective_chat.id]
 
-    logging.info("{} >: {}".format(update.effective_chat.id, update.message.text))
+    logging.info("{} >: {}".format(update.effective_chat.id, user_input))
 
-    user_input = update.message.text
     h.append({"role": "user", "content": user_input})
     if len(h) > 15:
         h = h[-15:]
@@ -50,4 +56,6 @@ def main(key, token):
 if __name__ == "__main__":
     key = os.getenv("OPENAI_API_KEY")
     token = os.getenv("TELEGRAM_API_TOKEN")
+    if not key or not token:
+        raise Exception("Cannot start without initialization of OPENAI_API_KEY and TELEGRAM_API_TOKEN variables")
     main(key, token)
