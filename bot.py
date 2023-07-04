@@ -4,8 +4,22 @@ from collections import defaultdict
 import logging
 import openai
 import os
+import time
 
 history = defaultdict(list)
+max_history_size = 25
+expiration_period = 5 * 60 # 5 munutes
+
+def append_history_entry(h, role, content):
+    h.append((time.time(), {"role": role, "content": content}))
+    if len(h) > max_history_size:
+        h = h[-max_history_size:]
+
+    now = time.time()
+    for i, e in enumerate(h):
+        if e[0] + expiration_period > now:
+           h = h[i:]
+           break
 
 async def generate_gpt_response(update, context):
     if not update.message:
@@ -20,24 +34,17 @@ async def generate_gpt_response(update, context):
 
     logging.info("{} >: {}".format(update.effective_chat.id, user_input))
 
-    h.append({"role": "user", "content": user_input})
-    if len(h) > 15:
-        h = h[-15:]
-
+    append_history_entry(h, "user", user_input)
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=list(h)
+        messages=[e[1] for e in h]
     )
-
     content = response.choices[0].message.content
-    h.append({"role": response.choices[0].message.role, "content": content})
-    if len(h) > 15:
-        h = h[-15:]
-    
-    
+    append_history_entry(h, response.choices[0].message.role, content)
+
     logging.info("{} <: {}".format(update.effective_chat.id, content))
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=content)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=content, parse_mode="Markdown")
 
 def main(key, token):
     logging.basicConfig(filename='bot.log', 
