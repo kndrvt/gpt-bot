@@ -8,7 +8,7 @@ import time
 
 history = defaultdict(list)
 max_history_size = 25
-expiration_period = 5 * 60 # 5 munutes
+expiration_period = 30 * 60 # 30 munutes
 
 def append_history_entry(h, role, content):
     h.append((time.time(), {"role": role, "content": content}))
@@ -35,12 +35,18 @@ async def generate_gpt_response(update, context):
     logging.info("{} >: {}".format(update.effective_chat.id, user_input))
 
     append_history_entry(h, "user", user_input)
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[e[1] for e in h]
-    )
-    content = response.choices[0].message.content
-    append_history_entry(h, response.choices[0].message.role, content)
+
+    content = ""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[e[1] for e in h]
+        )
+        content = response.choices[0].message.content
+    except Exception as exc:
+        content = "`ChatGPT API error: {}`".format(exc)
+
+    append_history_entry(h, "assistant", content)
 
     logging.info("{} <: {}".format(update.effective_chat.id, content))
 
