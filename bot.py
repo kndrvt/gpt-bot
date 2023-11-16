@@ -8,6 +8,7 @@ import time
 
 history = defaultdict(list)
 max_history_size = 16
+max_tg_msg_size = 4096
 expiration_period = 30 * 60 # 30 munutes
 
 def append_history_entry(h, role, content):
@@ -41,16 +42,19 @@ async def generate_gpt_response(update, context):
             model="gpt-3.5-turbo",
             messages=[e[1] for e in h]
         )
+
         content = response.choices[0].message.content
         append_history_entry(h, response.choices[0].message.role, content)
     except Exception as exc:
-        content = "`ChatGPT API error: {}`".format(exc)
+        exc = str(exc)
+        delta = len("```ChatGPT API error: ```")
+        content = "```ChatGPT API error: {}```".format(exc if len(exc) < max_tg_msg_size - delta else exc[:max_tg_msg_size - delta])
         h.clear()
 
     logging.info("{} <: {}".format(update.effective_chat.id, content))
     logging.info("history size: {}".format(len(h)))
 
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=content, parse_mode="Markdown")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=content, parse_mode="MarkdownV2")
 
 def main(key, token):
     logging.basicConfig(filename='bot.log', 
